@@ -1,0 +1,216 @@
+<?php
+/**  
+ * Implements hook_install().
+ */
+function GuestFilter_install() {
+    $t = get_t();
+   
+    //create the custom node type
+    $content_type = array(
+        'type' => 'GuestFilter',
+        'name' => $t('Gueset Filter'),
+        'description' => $t('A module that Filters Guests based on email.'),
+        'title_label' => $t('Name of Event'),
+        'base' => 'node_content',
+        'custom' => TRUE,
+    );
+
+    // Set remaining definitions with defaults.
+    $node_type = node_type_set_defaults($content_type);
+
+    // Save the content type.
+    node_type_save($node_type);
+
+    // Add a field for the body.
+    node_add_body_field($node_type, $t('Description'));
+
+    add_custom_fields();
+}
+
+
+
+function GuestFilter_installed_fields() {
+    $t = get_t();
+    return array(
+        'guestfilter_emails' => array(
+            'field_name' => 'guestfilter_emails',
+            'label' => $t('Manual entry'),
+            'type' => 'text_long', 
+            'cardinality' => 1,
+        ), 
+        'guestfilter_url' => array(
+            'field_name' => 'guestfilter_url',
+            'label' => $t('URL to be directed to after successful email validation.'),
+            'type' => 'text',
+        ),
+
+        'guestfilter_fail_url' => array(
+            'field_name' => 'guestfilter_fail_url',
+            'label' => $t('URL to be directed to after unsuccessful email validation.'),
+            'type' => 'text',
+        ),
+
+        'guestfilter_form_css' => array(
+            'field_name' => 'guestfilter_form_css',
+            'label' => $t('CSS key-value pairs for the sourounding GuestFilter form.'),
+            'type' => 'text'
+        ),
+
+        'guestfilter_email_check_css' => array(
+            'field_name' => 'guestfilter_email_check_css',
+            'label' => $t('CSS key-value pairs for the email label.'),
+            'type' => 'text'
+        ),
+
+        'guestfilter_form_submit_css' => array(
+            'field_name' => 'guestfilter_form_submit_css',
+            'label' => $t('CSS key-value pairs for the submit buttom.'),
+            'type' => 'text'
+        )
+    );
+}
+
+//Defining out content feilds 
+function GuestFilter_installed_instances() {
+    $t = get_t();
+    return array(
+        'guestfilter_emails' => array(
+            'field_name' => 'guestfilter_emails',
+            'type' => 'text_long',
+            'label' => $t("Guest Emails"),
+            'description' => $t("Emails of currently registered guests to be verified."),
+            
+            'widget' => array(
+                'type' => 'text_textarea'
+            ),
+
+            'required' => TRUE,
+            'settings' => array(
+                'text_processing' => 0, 
+            ),
+            'display' => array(
+                'default' => array(
+                    'type' => 'hidden',
+                ),
+            ),
+        ),
+        'guestfilter_url' => array(
+            'field_name' => 'guestfilter_url',
+            'type' => 'text',
+            'label' => $t('Success Redirect URL.'),
+            'description' => $t("The URL to be redirected to after validation."),
+            'widget' => array(
+                'type' => 'text_textfield'
+            ),
+            'display' => array(
+                'default' => array(
+                    'type' => 'hidden',
+                ),
+            ),
+        ),
+
+        'guestfilter_fail_url' => array(
+            'field_name' => 'guestfilter_fail_url',
+            'type' => 'text',
+            'label' => $t('Fail Redirect URL.'),
+            'description' => $t("The URL to be redirected to after unseccessful validation."),
+            'widget' => array(
+                'type' => 'text_textfield'
+            ),
+            'display' => array(
+                'default' => array(
+                    'type' => 'hidden',
+                ),
+            ),
+        ),
+ 
+        'guestfilter_form_css' => array(
+            'field_name' => 'guestfilter_form_css',
+            'type' => 'text',
+            'label' => $t('CSS Values For the Form'),
+            'description' => $t("Apply CSS key-value pairs for the surrounding form. Separate multiple by commas."),
+            'widget' => array(
+                'type' => 'text_textfield'
+            ),
+            'display' => array(
+                'default' => array(
+                    'type' => 'hidden',
+                ),
+            ),
+        ),
+
+        'guestfilter_email_check_css' => array(
+            'field_name' => 'guestfilter_email_check_css',
+            'type' => 'text',
+            'label' => $t('CSS Values For the Email Label'),
+            'description' => $t("Apply CSS key-value pairs for the email label. Separate multiple by commas."),
+            'widget' => array(
+                'type' => 'text_textfield'
+            ),
+            'display' => array(
+                'default' => array(
+                    'type' => 'hidden',
+                ),
+            ),
+        ),
+
+        'guestfilter_form_submit_css' => array(
+            'field_name' => 'guestfilter_form_submit_css',
+            'type' => 'text',
+            'label' => $t('CSS Values For the Submit Button'),
+            'description' => $t("Apply CSS key-value pairs for submit button. Separate multiple by commas."),
+            'widget' => array(
+                'type' => 'text_textfield'
+            ),
+            'display' => array(
+                'default' => array(
+                    'type' => 'hidden',
+                ),
+            ),
+        ),
+    );
+} 
+
+function add_custom_fields() {
+    
+    //create a place to store the field data
+    foreach (GuestFilter_installed_fields() as $field) {
+        field_create_field($field);
+    }
+
+    //Create some instances of the fieldsfffcccc
+    foreach (GuestFilter_installed_instances() as $fieldinstance) {
+        $fieldinstance['entity_type'] = 'node';
+        $fieldinstance['bundle'] = 'GuestFilter';
+        field_create_instance($fieldinstance);
+    }
+}
+
+
+
+//clean up module if uninstalled by the user, this will delete all nodes that utilize this module.
+function GuestFilter_uninstall() {
+    $ournewtype = 'GuestFilter';
+    $sql = 'SELECT nid FROM {node} n WHERE n.type = :type';
+    $result = db_query($sql, array(':type' => $ournewtype));
+    $nodeids = array();
+    foreach ($result as $row) {
+        $nodeids[] = $row->nid;
+    }
+    
+    node_delete_multiple($nodeids);
+    delete_custom_fields();
+    node_type_delete($ournewtype);
+    field_purge_batch(500);
+}
+
+function delete_custom_fields() {
+    foreach (array_keys(GuestFilter_installed_fields()) as $field) {
+        field_delete_field($field);
+    }
+    $instances = field_info_instances('node', 'GuestFilter');
+    foreach ($instances as $instance_name => $fieldinstance) {
+        field_delete_instance($fieldinstance);
+    }
+}
+

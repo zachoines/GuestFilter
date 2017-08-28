@@ -1,0 +1,325 @@
+<?php
+     
+/*
+* implements hook_menu()
+*/
+//define our new node type
+function GuestFilter_menu() {
+  $items = array();
+
+  // node page tab for css settings
+  $items['node/%node/guestfilter-css'] = array(
+    'title' => 'GuestFilter CSS',
+    'description' => 'Customize the style of the verification form, its label, and surrounding div',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => 'GuestFilter_style_form',
+    'access callback' => 'guestfilter_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    'weight' => 0,
+    'file' => 'includes/GuestFilter.verify.inc',
+  );
+
+
+  //  // Admin Settings.
+  // $items['admin/config/system/GuestFilter'] = array(
+  //   'title' => 'GuestFilter settings',
+  //   'page callback' => 'drupal_get_form',
+  //   'page arguments' => array('GuestFilter_admin_settings_form'),
+  //   'access arguments' => array('administer site configuration'),
+  //   'description' => t('Global configuration of GuestFilter functionality.'),
+  //   'file' => 'includes/GuestFilter.admin.inc', 
+  //   'type' => MENU_NORMAL_ITEM,
+  // );  
+  
+	return $items;
+}
+
+
+function guestfilter_edit_access() {
+    $node = NULL;
+    
+    if ($node = menu_get_object()) {
+      //a11 is well
+    } else {
+      return FALSE;
+    }
+    
+    $type = $node->type;
+
+    if ($type != "GuestFilter") {         
+        return FALSE; 
+    }
+
+    else {
+        return TRUE;
+    }
+}
+
+/** 
+* implements hook_node_info()
+*
+*/
+
+function GuestFilter_node_info() {
+  return array(
+      'GuestFilter' => array(
+          'name' => t('Guest Filter'),
+          'base' => 'GuestFilter',
+          'description' => t('Filters users based on invitation'),
+          'has_title' => TRUE,
+          'title_label' => t('GuestFilter Title'),
+          'locked' => FALSE,
+      ),
+  );
+}
+ 
+function GuestFilter_form($node, $form_state) {
+
+  return node_content_form($node, $form_state);
+
+}
+
+/*
+* Implements Hook_node_view()
+*/
+
+//load validation form only for nodes of our bundle type
+function GuestFilter_node_view($node, $view_mode, $langcode) {
+  foreach ($node->content as $value){
+    if ($value == "GuestFilter") {
+      $my_form = drupal_get_form('GuestFilter_verify_form', $node);
+      $node->content['my_form_attached'] = array(
+        '#markup' => drupal_render($my_form),
+        '#weight' => 10, 
+      );
+    }
+  }
+}
+
+/*
+*  Implements Hook_Form()
+*/
+
+function GuestFilter_verify_form($form, &$form_state, $node) {
+	
+
+	$form = array();
+
+	$nid = $node->nid;
+
+  $form['#node'] = $node;
+
+  $form['#attributes'] = array('class' => array('GuestFilter_form_'.$nid));
+
+	$form['GuestFilter_Email_check'] = array(
+	 	'#type' => 'textfield',
+    '#title' => t('Please Enter your email'),
+    '#attributes' => array('class' => array('GuestFilter_Email_check_'.$nid)), 
+	);
+
+  $form['#submit'] = array(
+		'GuestFilter_form_submit',
+	);
+
+	$form['nid'] = array(
+		'#type' => 'value',
+		'#value' => $node->nid,
+ 	);
+
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => t('Validate Reservation'),
+    '#attributes' => array('class' => array('GuestFilter_submit_'.$nid))
+  );
+
+	   
+	return $form;
+}
+
+/*
+* Implements hook_css_alter()
+*
+*/
+//remove GuestFilter.css if not on Node of type GuestFilter
+function GuestFilter_css_alter($css) {
+  $node = menu_get_object();
+
+  if ($node->type != 'GuestFilter') {
+
+    $exclude = array(
+      'sites/all/modules/custom/GuestFilter/css/GuestFilter.css' => false,
+    );
+    unlink('/css/GuestFilter.css');
+    $css = array_diff_key($css, $exclude);
+  }
+   
+}
+
+/*
+* Implements hook_form_alter()
+*/
+function GuestFilter_form_alter(&$form, &$form_state, $form_id) {
+
+  $node = $form['#node'];
+ 
+  if ($form_id == "GuestFilter_verify_form") {
+    WriteCss($node);
+    $emailsString = $node->guestfilter_emails['und'][0]["value"];
+    $form['#emailsTokens'] = explode(',', $emailsString);
+  }
+}
+
+//Create css file with user specified css form GuestFilter node forms 
+function WriteCss(&$node) {
+  
+  $nid = $node->nid;
+
+  $css_path = drupal_get_path('module', 'GuestFilter').'/css/GuestFilter.css';
+  
+  $css_file = fopen($css_path, "w+");
+
+  //Now write css key-value pairs to their respective classes
+  fwrite($css_file, ".GuestFilter_form_".$nid." {");
+
+  $css = $node->guestfilter_form_css['und'][0]["value"];
+  explode(',', $css);
+  foreach (explode(',', $css) as $value) {
+    fwrite($css_file, $value.";");
+  }
+  fwrite($css_file, "}");
+  
+  
+  fwrite($css_file, ".GuestFilter_Email_check_".$nid." {");
+
+  $css = $node->guestfilter_email_check_css['und'][0]["value"];
+  explode(',', $css);
+  foreach (explode(',', $css) as $value) {
+    fwrite($css_file, $value.";");
+  }
+  fwrite($css_file, "}");
+
+  fwrite($css_file, ".GuestFilter_submit_".$nid." {");
+
+  $css = $node->guestfilter_form_submit_css['und'][0]["value"];
+  explode(',', $css);
+  foreach (explode(',', $css) as $value) {
+    fwrite($css_file, $value.";");
+  }
+  fwrite($css_file, "}");
+
+  
+  fclose($css_file);
+
+  drupal_add_css($css_path, 'theme', 'all');
+  
+}
+
+/*
+* implements hook_form_validate();
+*/
+function  GuestFilter_verify_form_validate($form, &$form_state) {
+   
+}
+
+function GuestFilter_form_submit($form, &$form_state) {
+  $emailTokens = $form['#emailsTokens'];
+  $Success_URL = $form['#node']->guestfilter_url['und'][0]["value"];
+  $Fail_URL = $form['#node']->guestfilter_fail_url['und'][0]["value"];
+
+  $emailToken = $form['GuestFilter_Email_check']['#value'];
+
+  $found = FALSE;
+
+  foreach ($emailTokens as $token) {
+    trim($token);
+    trim($emailToken);
+    
+    if (strcasecmp($token, $emailToken) == 0) {
+      $found = TRUE;
+    } 
+  }
+
+  if ($found) {
+    dpm("Thank you!");
+    drupal_goto($Success_URL);
+  } else {
+     drupal_goto($Fail_URL);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+function my_module_update_7000() {
+  $field_name = 'field_GuestEmails';
+ 
+  // Make sure the field doesn't already exist.
+  if (!field_info_field($field_name)) {
+   
+
+      //create out guest email's field
+      $field = array(
+        'field' => $field_name,
+        'type' => 'text',
+        'settings' => array (
+          'max_length' => 64,
+        ), 
+      );
+
+      field_create_field($field);
+ 
+      //Create aninstance of the field
+      $instance = array(
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'bundle' => 'GuestFilter',
+        'label' => 'Guest Emails',
+        'description' => 'List of Invited Guests',
+        'required' => TRUE,
+      );
+
+ 
+      field_create_instance($instance);
+      watchdog('GuestFilter', t('!field_name was added successfully.', array('!field_name' => $field_name)));
+  }
+  else {
+    watchdog('GuestFilter', t('!field_name already exists.', array('!field_name' => $field_name)));
+  }
+}*/

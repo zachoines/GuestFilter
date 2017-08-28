@@ -1,0 +1,7 @@
+name = Guest Filter
+description = Filters Invited Guests Based on Email Address
+dependencies[] = field
+package = UMN
+version = 1.0
+configure = admin/config/system/GuestFilter
+core = 7.x
